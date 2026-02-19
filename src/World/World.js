@@ -20,6 +20,7 @@ import { DynamicSky } from './systems/DynamicSky.js'
 import { createPlayer } from './systems/player.js'
 import { loadTiger } from './components/tiger.js'
 import { createCharacterController } from './systems/characterController.js'
+import { HouseVisibility } from './systems/HouseVisibility.js'
 
 import gsap from 'gsap'
 
@@ -132,7 +133,7 @@ class World {
   }
 
   async init() {
-    const { house } = await loadHouse()
+    const { house, groundRegionBox } = await loadHouse()
     const birds = await loadBirds()
     for (var b = 0; b < birds.children.length; b++) {
       loop.updatables.push(birds.children[b])
@@ -159,6 +160,9 @@ class World {
       tiger, idleAction, walkAction, runAction, mixer, orthographicCamera, house
     )
     loop.updatables.push(characterController)
+
+    const houseVisibility = new HouseVisibility(house, tiger, groundRegionBox)
+    loop.updatables.push(houseVisibility)
   }
 
   start() {
