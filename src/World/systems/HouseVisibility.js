@@ -1,4 +1,4 @@
-import { Box3 } from 'three'
+import { Box3, Vector3 } from 'three'
 import gsap from 'gsap'
 
 class HouseVisibility {
@@ -7,27 +7,116 @@ class HouseVisibility {
         this.character = character
         this.groundRegionBox = groundRegionBox
 
+        // Uniforms for the proximity shader
+        this.sharedUniforms = {
+            uPlayerPos: { value: new Vector3() },
+            uRadius: { value: 6.0 },
+            uFalloff: { value: 2.0 },
+            uHeightLimit: { value: 3.5 }, // Restricts transparency vertically
+            uMinOpacity: { value: 0.12 }
+        }
+
         this.groups = [
             { name: 'Cobertura', object: null, currentOpacity: 1, targetOpacity: 1 },
             { name: 'Superior', object: null, currentOpacity: 1, targetOpacity: 1 },
         ]
 
+        this._lastTargetRadius = 6.0
         this.init()
     }
 
     init() {
+        // First, record groups for the floor-visibility system
         this.house.traverse(child => {
             const g = this.groups.find(x => x.name === child.name)
             if (g) {
                 g.object = child
+            }
+        })
 
-                // Prepare all materials for transparency
-                child.traverse(node => {
-                    if (node.isMesh && node.material) {
-                        // Clone material to avoid affecting other objects if shared
-                        node.material = node.material.clone()
-                        node.material.transparent = true
-                        node.material.opacity = 1
+        // Second, prepare materials for both fading and proximity transparency
+        this.house.traverse(node => {
+            if (node.isMesh && node.material) {
+                // Determine if this mesh is part of a group that needs to fade (Superior or Cobertura)
+                let isInGroup = false;
+                node.traverseAncestors(a => {
+                    if (this.groups.some(g => g.object === a)) {
+                        isInGroup = true;
+                    }
+                });
+
+                const materials = Array.isArray(node.material) ? node.material : [node.material]
+
+                materials.forEach((mat, index) => {
+                    const isWall = (mat.name || "").toLowerCase().includes('wall') || (mat.name || "").toLowerCase().includes('parede');
+
+                    // Proceed only if it's a wall (for shader) or in a group (for fading)
+                    if (!isWall && !isInGroup) return;
+
+                    // Clone to avoid affecting shared assets
+                    const newMat = mat.clone()
+                    newMat.transparent = true
+
+                    // Only apply proximity shader to walls
+                    if (isWall) {
+                        newMat.onBeforeCompile = (shader) => {
+                            shader.uniforms.uPlayerPos = this.sharedUniforms.uPlayerPos
+                            shader.uniforms.uRadius = this.sharedUniforms.uRadius
+                            shader.uniforms.uFalloff = this.sharedUniforms.uFalloff
+                            shader.uniforms.uHeightLimit = this.sharedUniforms.uHeightLimit
+                            shader.uniforms.uMinOpacity = this.sharedUniforms.uMinOpacity
+
+                            shader.vertexShader = `
+                                varying vec3 vWorldPosition;
+                                ${shader.vertexShader}
+                            `.replace(
+                                '#include <worldpos_vertex>',
+                                `
+                                #include <worldpos_vertex>
+                                vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
+                                `
+                            )
+
+                            shader.fragmentShader = `
+                                varying vec3 vWorldPosition;
+                                uniform vec3 uPlayerPos;
+                                uniform float uRadius;
+                                uniform float uFalloff;
+                                uniform float uHeightLimit;
+                                uniform float uMinOpacity;
+                                ${shader.fragmentShader}
+                            `.replace(
+                                '#include <dithering_fragment>',
+                                `
+                                #include <dithering_fragment>
+                                
+                                // Cylindrical distance (XZ only)
+                                float distXZ = distance(vWorldPosition.xz, uPlayerPos.xz);
+                                // Vertical distance relative to player
+                                float dy = vWorldPosition.y - uPlayerPos.y;
+                                
+                                // horizontal falloff
+                                float alphaXZ = smoothstep(uRadius - uFalloff, uRadius, distXZ);
+                                
+                                // Vertical bounds (Asymmetric)
+                                // Transparency window: from ~0.1 below feet to ~3.0 above
+                                float alphaY_bottom = 1.0 - smoothstep(-0.3, -0.1, dy);
+                                float alphaY_top = smoothstep(3.0, 3.5, dy);
+                                float alphaY = max(alphaY_bottom, alphaY_top);
+                                
+                                // Final proximity factor
+                                float proximityAlpha = max(alphaXZ, alphaY);
+                                
+                                gl_FragColor.a *= (proximityAlpha * (1.0 - uMinOpacity) + uMinOpacity);
+                                `
+                            )
+                        }
+                    }
+
+                    if (Array.isArray(node.material)) {
+                        node.material[index] = newMat
+                    } else {
+                        node.material = newMat
                     }
                 })
             }
@@ -53,7 +142,10 @@ class HouseVisibility {
             onUpdate: () => {
                 group.object.traverse(node => {
                     if (node.isMesh && node.material) {
-                        node.material.opacity = group.currentOpacity
+                        const mats = Array.isArray(node.material) ? node.material : [node.material]
+                        mats.forEach(m => {
+                            m.opacity = group.currentOpacity
+                        })
                     }
                 })
             },
@@ -65,6 +157,9 @@ class HouseVisibility {
     }
 
     tick(delta) {
+        // Update shared proximity uniform
+        this.sharedUniforms.uPlayerPos.value.copy(this.character.position)
+
         const playerY = this.character.position.y
         const playerPos = this.character.position
 
@@ -72,6 +167,17 @@ class HouseVisibility {
         let inGroundRegion = false
         if (this.groundRegionBox) {
             inGroundRegion = this.groundRegionBox.containsPoint(playerPos)
+        }
+
+        // ── Proximity Radius Animation ──────────────────────────────────
+        const targetRadius = inGroundRegion ? 6.0 : 0.0
+        if (this._lastTargetRadius !== targetRadius) {
+            this._lastTargetRadius = targetRadius
+            gsap.to(this.sharedUniforms.uRadius, {
+                value: targetRadius,
+                duration: 0.5,
+                ease: 'power2.inOut'
+            })
         }
 
         if (inGroundRegion) {
