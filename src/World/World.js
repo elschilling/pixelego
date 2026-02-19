@@ -1,6 +1,7 @@
 import { loadHouse } from './components/house/house.js'
 import { loadBirds } from './components/birds/birds.js'
 import { createBirdCamera } from './components/birdCamera.js'
+import { createOrthographicCamera } from './components/orthographicCamera.js'
 import { createFirstPersonCamera } from './components/firstPersonCamera.js'
 import { createBase } from './components/base.js'
 import { createLights } from './components/lights.js'
@@ -17,16 +18,18 @@ import { Loop } from './systems/Loop.js'
 import { SunPath } from './systems/SunPath.js'
 import { DynamicSky } from './systems/DynamicSky.js'
 import { createPlayer } from './systems/player.js'
+import { loadTiger } from './components/tiger.js'
+import { createCharacterController } from './systems/characterController.js'
 
 import gsap from 'gsap'
 
 const params = {
-  animateTime: true,
-  showSunSurface: true,
-  showAnalemmas: true,
-  showSunDayPath: true,
-  minute: new Date().getMinutes(),
-  hour: new Date().getHours(),
+  animateTime: false,
+  showSunSurface: false,
+  showAnalemmas: false,
+  showSunDayPath: false,
+  minute: 0,
+  hour: 17,
   day: new Date().getDate(),
   month: new Date().getMonth() + 1,
   latitude: -23.029396,
@@ -52,6 +55,7 @@ const cameraControl = {
     loop.camera = firstPersonCamera
     resizer.camera = firstPersonCamera
     postProcessing.setCamera(firstPersonCamera)
+    controls.object = firstPersonCamera
     resizer.onResize()
   },
   birdView() {
@@ -59,13 +63,22 @@ const cameraControl = {
     loop.camera = birdCamera
     resizer.camera = birdCamera
     postProcessing.setCamera(birdCamera)
+    controls.object = birdCamera
+    resizer.onResize()
+  },
+  orthographic() {
+    activeCamera = orthographicCamera
+    loop.camera = orthographicCamera
+    resizer.camera = orthographicCamera
+    postProcessing.setCamera(orthographicCamera)
+    controls.object = orthographicCamera
     resizer.onResize()
   }
 }
 
 let tl = gsap.timeline({ repeta: -1 })
 
-let activeCamera, birdCamera, firstPersonCamera
+let activeCamera, birdCamera, firstPersonCamera, orthographicCamera
 let renderer, postProcessing
 let scene
 let loop
@@ -76,7 +89,8 @@ class World {
   constructor(container) {
     birdCamera = createBirdCamera()
     firstPersonCamera = createFirstPersonCamera()
-    activeCamera = birdCamera
+    orthographicCamera = createOrthographicCamera()
+    activeCamera = orthographicCamera
 
     scene = createScene()
     renderer = createRenderer()
@@ -96,11 +110,14 @@ class World {
 
     const base = createBase(params)
     const sunPath = new SunPath(params, sunSphere, sunLight, base)
+    // Hide default sun sphere elements
+    sunPath.sphereLight.children[0].visible = false // Sun Sphere
+    sunPath.sunPathLight.children[1].visible = false // Orientation / Base (check this)
 
     const sky = new DynamicSky(skyControl, sunPath.sphereLight, renderer)
 
     const sunHelper = createDirectionalLightHelper(sunLight)
-    sunHelper.visible = true
+    sunHelper.visible = false
 
     const sunShadowHelper = createShadowCameraHelper(sunLight)
     // const axesHelper = createAxesHelper(30)
@@ -124,6 +141,24 @@ class World {
     tl.to(birds.position, { duration: 60, delay: 1, x: 100, z: 120 })
     const player = createPlayer(firstPersonCamera, house)
     loop.updatables.push(player)
+
+    // ── Tiger character ─────────────────────────────────────────────────
+    const { tiger, mixer, idleAction, walkAction, runAction } = await loadTiger()
+    scene.add(tiger)
+
+    // Switch to orthographic 3rd-person camera and lock OrbitControls off
+    activeCamera = orthographicCamera
+    loop.camera = orthographicCamera
+    resizer.camera = orthographicCamera
+    postProcessing.setCamera(orthographicCamera)
+    controls.object = orthographicCamera
+    controls.enabled = false   // WASD drives the camera; orbit should not interfere
+    resizer.onResize()
+
+    const characterController = createCharacterController(
+      tiger, idleAction, walkAction, runAction, mixer, orthographicCamera, house
+    )
+    loop.updatables.push(characterController)
   }
 
   start() {

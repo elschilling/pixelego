@@ -8,7 +8,7 @@ function createControls(camera, canvas) {
 
   // this.controls.autoRotate = true;
   controls.enableDamping = true
-  controls.autoRotate = true
+  controls.autoRotate = false
   controls.minDistance = 30
   controls.maxDistance = 200
   // controls.maxPolarAngle = Math.PI / 2

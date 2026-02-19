@@ -32,6 +32,7 @@ function createGUI(params, ambientLight, sunLight, sunHelper, shadowCameraHelper
   cameraFolder.add(controls, 'autoRotate')
   cameraFolder.add(cameraControl, 'firstPerson')
   cameraFolder.add(cameraControl, 'birdView')
+  cameraFolder.add(cameraControl, 'orthographic').name('Orthographic')
   cameraFolder.close()
 
   const timeFolder = gui.addFolder('Time')
@@ -52,34 +53,27 @@ function createGUI(params, ambientLight, sunLight, sunHelper, shadowCameraHelper
   sunsurfaceFolder.close()
 
   // SSGI Controls
-  if (postProcessing) {
-    const ssgiFolder = gui.addFolder('SSGI (Screen Space GI)')
-    const ssgiPass = postProcessing.ssgiPass || postProcessing.ssaoPass
+  // Pixelation Controls
+  if (postProcessing && postProcessing.pixelPass) {
+    const pixelFolder = gui.addFolder('Pixelation')
+    const pixelPass = postProcessing.pixelPass
 
-    // Create a proxy object for SSGI parameters
-    const ssgiParams = {
-      enabled: ssgiPass ? ssgiPass.enabled : false,
-      kernelRadius: ssgiPass ? (ssgiPass.kernelRadius || ssgiPass.radius) : 16,
-      minDistance: ssgiPass ? (ssgiPass.minDistance || 0.005) : 0.005,
-      maxDistance: ssgiPass ? (ssgiPass.maxDistance || 0.1) : 0.1
+    const pixelParams = {
+      pixelSize: pixelPass.pixelSize,
+      normalEdgeStrength: pixelPass.normalEdgeStrength,
+      depthEdgeStrength: pixelPass.depthEdgeStrength
     }
 
-    ssgiFolder.add(ssgiParams, 'enabled').name('Enabled').onChange((value) => {
-      if (ssgiPass) ssgiPass.enabled = value
+    pixelFolder.add(pixelParams, 'pixelSize').min(1).max(16).step(1).name('Pixel Size').onChange((value) => {
+      pixelPass.setPixelSize(value)
     })
-    ssgiFolder.add(ssgiParams, 'kernelRadius').min(0).max(64).step(1).name('Kernel Radius').onChange((value) => {
-      if (ssgiPass) {
-        if (ssgiPass.kernelRadius !== undefined) ssgiPass.kernelRadius = value
-        if (ssgiPass.radius !== undefined) ssgiPass.radius = value
-      }
+    pixelFolder.add(pixelParams, 'normalEdgeStrength').min(0).max(2).step(0.1).name('Normal Edge Strength').onChange((value) => {
+      pixelPass.normalEdgeStrength = value
     })
-    ssgiFolder.add(ssgiParams, 'minDistance').min(0.0001).max(0.01).step(0.0001).name('Min Distance').onChange((value) => {
-      if (ssgiPass && ssgiPass.minDistance) ssgiPass.minDistance = value
+    pixelFolder.add(pixelParams, 'depthEdgeStrength').min(0).max(2).step(0.1).name('Depth Edge Strength').onChange((value) => {
+      pixelPass.depthEdgeStrength = value
     })
-    ssgiFolder.add(ssgiParams, 'maxDistance').min(0.01).max(1).step(0.01).name('Max Distance').onChange((value) => {
-      if (ssgiPass && ssgiPass.maxDistance) ssgiPass.maxDistance = value
-    })
-    ssgiFolder.close()
+    pixelFolder.open()
   }
 
   // skyFolder.hide()

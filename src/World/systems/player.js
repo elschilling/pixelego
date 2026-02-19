@@ -7,8 +7,8 @@ function createPlayer(camera, geometry) {
   const STEPS_PER_FRAME = 5;
 
   const worldOctree = new Octree();
-	const playerCollider = new Capsule( new Vector3( 0, 1.35, 15 ), new Vector3( 0, 2.8, 15 ), 0.25 );
-  
+  const playerCollider = new Capsule(new Vector3(0, 1.35, 15), new Vector3(0, 2.8, 15), 0.25);
+
   const playerVelocity = new Vector3();
   const playerDirection = new Vector3();
 
@@ -17,25 +17,25 @@ function createPlayer(camera, geometry) {
 
   const keyStates = {};
 
-  document.addEventListener( 'keydown', ( event ) => {
+  document.addEventListener('keydown', (event) => {
 
-    keyStates[ event.code ] = true;
+    keyStates[event.code] = true;
 
-  } );
+  });
 
-  document.addEventListener( 'keyup', ( event ) => {
+  document.addEventListener('keyup', (event) => {
 
-    keyStates[ event.code ] = false;
+    keyStates[event.code] = false;
 
-  } );
+  });
 
-  document.addEventListener( 'mousedown', () => {
+  document.addEventListener('mousedown', () => {
 
     // document.body.requestPointerLock();
 
     // mouseTime = performance.now();
 
-  } );
+  });
 
   // document.addEventListener( 'mouseup', () => {
 
@@ -43,44 +43,44 @@ function createPlayer(camera, geometry) {
 
   // } );
 
-  document.body.addEventListener( 'mousemove', ( event ) => {
+  document.body.addEventListener('mousemove', (event) => {
 
-    if ( document.pointerLockElement === document.body ) {
+    if (document.pointerLockElement === document.body) {
 
       camera.rotation.y -= event.movementX / 500;
       camera.rotation.x -= event.movementY / 500;
 
     }
 
-  } );
+  });
 
   function playerCollisions() {
 
-    const result = worldOctree.capsuleIntersect( playerCollider );
+    const result = worldOctree.capsuleIntersect(playerCollider);
 
     playerOnFloor = false;
 
-    if ( result ) {
+    if (result) {
 
       playerOnFloor = result.normal.y > 0;
 
-      if ( ! playerOnFloor ) {
+      if (!playerOnFloor) {
 
-        playerVelocity.addScaledVector( result.normal, - result.normal.dot( playerVelocity ) );
+        playerVelocity.addScaledVector(result.normal, - result.normal.dot(playerVelocity));
 
       }
 
-      playerCollider.translate( result.normal.multiplyScalar( result.depth ) );
+      playerCollider.translate(result.normal.multiplyScalar(result.depth));
 
     }
 
   }
 
-  function updatePlayer( deltaTime ) {
+  function updatePlayer(deltaTime) {
 
-    let damping = Math.exp( - 4 * deltaTime ) - 1;
+    let damping = Math.exp(- 4 * deltaTime) - 1;
 
-    if ( ! playerOnFloor ) {
+    if (!playerOnFloor) {
 
       playerVelocity.y -= GRAVITY * deltaTime;
 
@@ -89,20 +89,20 @@ function createPlayer(camera, geometry) {
 
     }
 
-    playerVelocity.addScaledVector( playerVelocity, damping );
+    playerVelocity.addScaledVector(playerVelocity, damping);
 
-    const deltaPosition = playerVelocity.clone().multiplyScalar( deltaTime );
-    playerCollider.translate( deltaPosition );
+    const deltaPosition = playerVelocity.clone().multiplyScalar(deltaTime);
+    playerCollider.translate(deltaPosition);
 
     playerCollisions();
 
-    camera.position.copy( playerCollider.end );
+    camera.position.copy(playerCollider.end);
 
   }
 
   function getForwardVector() {
 
-    camera.getWorldDirection( playerDirection );
+    camera.getWorldDirection(playerDirection);
     playerDirection.y = 0;
     playerDirection.normalize();
 
@@ -112,50 +112,47 @@ function createPlayer(camera, geometry) {
 
   function getSideVector() {
 
-    camera.getWorldDirection( playerDirection );
+    camera.getWorldDirection(playerDirection);
     playerDirection.y = 0;
     playerDirection.normalize();
-    playerDirection.cross( camera.up );
+    playerDirection.cross(camera.up);
 
     return playerDirection;
 
   }
 
-  function controls( deltaTime ) {
+  function controls(deltaTime) {
 
     // gives a bit of air control
-    const speedDelta = deltaTime * ( playerOnFloor ? 25 : 8 );
+    const speedDelta = deltaTime * (playerOnFloor ? 25 : 8);
 
-    if ( keyStates[ 'KeyW' ] ) {
+    if (keyStates['KeyW']) {
 
-      playerVelocity.add( getForwardVector().multiplyScalar( speedDelta ) );
-      document.body.requestPointerLock();
-    }
-
-    if ( keyStates[ 'KeyS' ] ) {
-
-      playerVelocity.add( getForwardVector().multiplyScalar( - speedDelta ) );
-      document.body.requestPointerLock();
+      playerVelocity.add(getForwardVector().multiplyScalar(speedDelta));
 
     }
 
-    if ( keyStates[ 'KeyA' ] ) {
+    if (keyStates['KeyS']) {
 
-      playerVelocity.add( getSideVector().multiplyScalar( - speedDelta ) );
-      document.body.requestPointerLock();
-
-    }
-
-    if ( keyStates[ 'KeyD' ] ) {
-
-      playerVelocity.add( getSideVector().multiplyScalar( speedDelta ) );
-      document.body.requestPointerLock();
+      playerVelocity.add(getForwardVector().multiplyScalar(- speedDelta));
 
     }
 
-    if ( playerOnFloor ) {
+    if (keyStates['KeyA']) {
 
-      if ( keyStates[ 'Space' ] ) {
+      playerVelocity.add(getSideVector().multiplyScalar(- speedDelta));
+
+    }
+
+    if (keyStates['KeyD']) {
+
+      playerVelocity.add(getSideVector().multiplyScalar(speedDelta));
+
+    }
+
+    if (playerOnFloor) {
+
+      if (keyStates['Space']) {
 
         playerVelocity.y = 15;
 
@@ -168,24 +165,24 @@ function createPlayer(camera, geometry) {
 
   function teleportPlayerIfOob() {
 
-    if ( camera.position.y <= - 25 ) {
+    if (camera.position.y <= - 25) {
 
-      playerCollider.start.set( 0, 1.35, 15 );
-      playerCollider.end.set( 0, 2.8, 15 );
+      playerCollider.start.set(0, 1.35, 15);
+      playerCollider.end.set(0, 2.8, 15);
       playerCollider.radius = 0.35;
-      camera.position.copy( playerCollider.end );
-      camera.rotation.set( 0, 0, 0 );
+      camera.position.copy(playerCollider.end);
+      camera.rotation.set(0, 0, 0);
 
     }
 
   }
 
   playerCollider.tick = (delta) => {
-    for ( let i = 0; i < STEPS_PER_FRAME; i ++ ) {
-      const deltaTime = Math.min( 0.05, delta) / STEPS_PER_FRAME 
-      controls( deltaTime );
+    for (let i = 0; i < STEPS_PER_FRAME; i++) {
+      const deltaTime = Math.min(0.05, delta) / STEPS_PER_FRAME
+      controls(deltaTime);
 
-      updatePlayer( deltaTime );
+      updatePlayer(deltaTime);
 
       // updateSpheres( deltaTime );
 

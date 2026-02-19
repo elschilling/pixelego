@@ -1,5 +1,16 @@
 const setSize = (container, camera, renderer, postProcessing = null) => {
-  camera.aspect = container.clientWidth / container.clientHeight;
+  const aspect = container.clientWidth / container.clientHeight;
+
+  if (camera.isOrthographicCamera) {
+    const frustumSize = 20
+    camera.left = -frustumSize * aspect / 2
+    camera.right = frustumSize * aspect / 2
+    camera.top = frustumSize / 2
+    camera.bottom = -frustumSize / 2
+  } else {
+    camera.aspect = aspect;
+  }
+
   camera.updateProjectionMatrix();
 
   renderer.setSize(container.clientWidth, container.clientHeight);
