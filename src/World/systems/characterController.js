@@ -2,7 +2,7 @@ import { Vector3, Quaternion } from 'three'
 import { Octree } from 'three/examples/jsm/math/Octree'
 import { Capsule } from 'three/examples/jsm/math/Capsule'
 
-function createCharacterController(tiger, idleAction, walkAction, runAction, mixer, camera, collisionMesh) {
+function createCharacterController(tiger, idleAction, walkAction, runAction, mixer, camera, collisionMesh, joystick) {
     const WALK_SPEED = 5
     const RUN_SPEED = 10
     const GRAVITY = 30
@@ -55,17 +55,21 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
         }
     }
 
-    function applyPhysics(dt) {
-        const anyKey = keyStates['KeyW'] || keyStates['KeyS'] || keyStates['KeyA'] || keyStates['KeyD']
-
+    function applyPhysics(dt, moving, jumping) {
         if (onFloor) {
-            if (!anyKey) {
+            if (!moving) {
                 // Stop instantly — no sliding
                 velocity.x = 0
                 velocity.z = 0
             }
-            // Damp Y on floor to avoid drift
-            velocity.y = Math.max(0, velocity.y + (Math.exp(-4 * dt) - 1) * velocity.y)
+
+            if (jumping) {
+                velocity.y = 12 // JUMP_FORCE
+                onFloor = false
+            } else {
+                // Damp Y on floor to avoid drift
+                velocity.y = Math.max(0, velocity.y + (Math.exp(-4 * dt) - 1) * velocity.y)
+            }
         } else {
             // In the air: apply gravity and a little air resistance
             velocity.y -= GRAVITY * dt
@@ -102,13 +106,21 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
 
         cameraRight.crossVectors(cameraForward, worldUp).negate()
 
+        // Keyboard Input
         if (keyStates['KeyW']) moveDir.add(cameraForward)
         if (keyStates['KeyS']) moveDir.addScaledVector(cameraForward, -1)
         if (keyStates['KeyA']) moveDir.addScaledVector(cameraRight, 1)
         if (keyStates['KeyD']) moveDir.addScaledVector(cameraRight, -1)
 
-        const moving = moveDir.lengthSq() > 0
+        // Joystick Input (Mobile)
+        if (joystick && joystick.active) {
+            moveDir.addScaledVector(cameraRight, -joystick.vector.x)
+            moveDir.addScaledVector(cameraForward, joystick.vector.y)
+        }
+
+        const moving = moveDir.lengthSq() > 0.001
         const running = keyStates['ShiftLeft']
+        const jumping = keyStates['Space'] || (joystick && joystick.jumpActive)
         const currentSpeed = running ? RUN_SPEED : WALK_SPEED
 
         if (moving) {
@@ -122,7 +134,7 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
             tiger.quaternion.slerp(targetQuat, 12 * dt)
         }
 
-        return { moving, running }
+        return { moving, running, jumping }
     }
 
     function tick(delta) {
@@ -132,8 +144,8 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
         // Physics sub-steps
         for (let i = 0; i < STEPS_PER_FRAME; i++) {
             const dt = Math.min(0.05, delta) / STEPS_PER_FRAME
-            gatherInput(dt)
-            applyPhysics(dt)
+            const { moving, jumping } = gatherInput(dt)
+            applyPhysics(dt, moving, jumping)
         }
 
         // ── Animation blending ──────────────────────────────────────────

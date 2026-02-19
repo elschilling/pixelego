@@ -1,18 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/sun.svg" />
-    <link rel="stylesheet" href="style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sunposition 3D Viewer</title>
-  </head>
-  <body>
-    <div id="scene-container">
-      <!-- <div class="time">20:40 - 30/5</div> -->
-      <a id="button" target="_blank" href="https://github.com/elschilling/sunposition" title="View source code on GitHub"><img src="https://threejs.org/files/ic_code_black_24dp.svg"></a>
-    </div>
-    <script type="module" src="/main.js"></script>
-  </body>
-</html>
 
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/sun.svg" />
+  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sunposition 3D Viewer</title>
+</head>
+
+<body>
+  <div id="scene-container">
+    <div id="joystick-container">
+      <div id="joystick-base"></div>
+      <div id="joystick-knob"></div>
+    </div>
+    <div id="jump-button">JUMP</div>
+    <div id="orientation-overlay">
+      <div class="message">Please rotate your device to landscape mode</div>
+    </div>
+    <!-- <a id="button" target="_blank" href="https://github.com/elschilling/sunposition"
+      title="View source code on GitHub"><img src="https://threejs.org/files/ic_code_black_24dp.svg"></a> -->
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+
+</html>

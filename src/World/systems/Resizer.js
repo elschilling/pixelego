@@ -2,7 +2,7 @@ const setSize = (container, camera, renderer, postProcessing = null) => {
   const aspect = container.clientWidth / container.clientHeight;
 
   if (camera.isOrthographicCamera) {
-    const frustumSize = 20
+    const frustumSize = window.innerWidth < 800 ? 25 : 20
     camera.left = -frustumSize * aspect / 2
     camera.right = frustumSize * aspect / 2
     camera.top = frustumSize / 2

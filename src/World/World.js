@@ -21,6 +21,7 @@ import { createPlayer } from './systems/player.js'
 import { loadTiger } from './components/tiger.js'
 import { createCharacterController } from './systems/characterController.js'
 import { HouseVisibility } from './systems/HouseVisibility.js'
+import { Joystick } from './systems/Joystick.js'
 
 import gsap from 'gsap'
 
@@ -156,8 +157,11 @@ class World {
     controls.enabled = false   // WASD drives the camera; orbit should not interfere
     resizer.onResize()
 
+    // Initialize Joystick (Mobile Controls)
+    const joystick = new Joystick()
+
     const characterController = createCharacterController(
-      tiger, idleAction, walkAction, runAction, mixer, orthographicCamera, house
+      tiger, idleAction, walkAction, runAction, mixer, orthographicCamera, house, joystick
     )
     loop.updatables.push(characterController)
 
