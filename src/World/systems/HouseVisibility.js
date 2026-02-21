@@ -22,6 +22,8 @@ class HouseVisibility {
             { name: 'Superior', object: null, currentOpacity: 1, targetOpacity: 1 },
         ]
 
+        this.wallMaterials = [] // Keep track of wall materials to toggle depthWrite
+
         this._lastTargetRadius = 6.0
         this._lastInGroundRegion = false
         this._zoomOutside = 1.0
@@ -62,13 +64,15 @@ class HouseVisibility {
                     // Clone to avoid affecting shared assets
                     const newMat = mat.clone()
                     newMat.transparent = true
-                    newMat.depthWrite = false
+                    newMat.depthWrite = true
 
                     // Store original opacity for the visibility system
                     newMat.userData.baseOpacity = mat.opacity;
 
                     // Only apply proximity shader to walls
                     if (isWall) {
+                        newMat.depthWrite = true // Start with depthWrite true (assuming player starts outside)
+                        this.wallMaterials.push(newMat)
                         newMat.onBeforeCompile = (shader) => {
                             shader.uniforms.uPlayerPos = this.sharedUniforms.uPlayerPos
                             shader.uniforms.uRadius = this.sharedUniforms.uRadius
@@ -187,6 +191,11 @@ class HouseVisibility {
         // ── Camera Zoom Animation ───────────────────────────────────────
         if (this.camera && inGroundRegion !== this._lastInGroundRegion) {
             this._lastInGroundRegion = inGroundRegion
+
+            // Toggle depthWrite on wall materials
+            const shouldDepthWrite = !inGroundRegion
+            this.wallMaterials.forEach(m => m.depthWrite = shouldDepthWrite)
+
             const targetZoom = inGroundRegion ? this._zoomInside : this._zoomOutside
             gsap.to(this.camera, {
                 zoom: targetZoom,
