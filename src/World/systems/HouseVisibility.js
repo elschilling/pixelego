@@ -14,7 +14,7 @@ class HouseVisibility {
             uRadius: { value: 6.0 },
             uFalloff: { value: 2.0 },
             uHeightLimit: { value: 3.5 }, // Restricts transparency vertically
-            uMinOpacity: { value: 0.12 }
+            uMinOpacity: { value: 0.05 }
         }
 
         this.groups = [
@@ -25,7 +25,7 @@ class HouseVisibility {
         this._lastTargetRadius = 6.0
         this._lastInGroundRegion = false
         this._zoomOutside = 1.0
-        this._zoomInside = 1.5
+        this._zoomInside = 2.0
         this.init()
     }
 
@@ -62,6 +62,7 @@ class HouseVisibility {
                     // Clone to avoid affecting shared assets
                     const newMat = mat.clone()
                     newMat.transparent = true
+                    newMat.depthWrite = false
 
                     // Store original opacity for the visibility system
                     newMat.userData.baseOpacity = mat.opacity;
@@ -108,8 +109,8 @@ class HouseVisibility {
                                 float alphaXZ = smoothstep(uRadius - uFalloff, uRadius, distXZ);
                                 
                                 // Vertical bounds (Asymmetric)
-                                // Transparency window: from ~0.1 below feet to ~3.0 above
-                                float alphaY_bottom = 1.0 - smoothstep(-0.3, -0.1, dy);
+                                // Transparency window: from 0.5 above feet to ~3.0 above
+                                float alphaY_bottom = 1.0 - smoothstep(0.3, 0.5, dy);
                                 float alphaY_top = smoothstep(3.0, 3.5, dy);
                                 float alphaY = max(alphaY_bottom, alphaY_top);
                                 

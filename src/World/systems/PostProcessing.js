@@ -6,7 +6,7 @@ function createPostProcessing(scene, camera, renderer) {
     const composer = new EffectComposer(renderer)
 
     // Pixelation pass
-    const pixelPass = new RenderPixelatedPass(3, scene, camera)
+    const pixelPass = new RenderPixelatedPass(2, scene, camera)
     pixelPass.normalEdgeStrength = 0.3
     pixelPass.depthEdgeStrength = 0.4
     composer.addPass(pixelPass)
