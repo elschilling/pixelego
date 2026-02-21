@@ -100,6 +100,36 @@ body {
     }
 }
 
+#door-button {
+    position: fixed;
+    bottom: 140px;
+    right: 40px;
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 200, 50, 0.5);
+    border: 2px solid rgba(255, 220, 100, 0.7);
+    border-radius: 50%;
+    color: white;
+    font-family: sans-serif;
+    font-size: 0.75rem;
+    font-weight: bold;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    user-select: none;
+    touch-action: none;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+}
+
+#door-button.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 #jump-button {
     position: fixed;
     bottom: 40px;
@@ -121,7 +151,6 @@ body {
     backdrop-filter: blur(4px);
 }
 
-/* Only show joystick on touch-capable devices */
 @media (pointer: coarse) {
     #joystick-container {
         display: block;
@@ -130,4 +159,35 @@ body {
     #jump-button {
         display: flex;
     }
+
+    #door-button {
+        display: flex;
+    }
+}
+
+/* ── Door Interaction Prompt ─────────────────────────────────────── */
+
+#door-prompt {
+    position: fixed;
+    bottom: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 28px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-radius: 24px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+#door-prompt.visible {
+    opacity: 1;
 }

@@ -2,10 +2,11 @@ import { Box3, Vector3 } from 'three'
 import gsap from 'gsap'
 
 class HouseVisibility {
-    constructor(house, character, groundRegionBox = null) {
+    constructor(house, character, groundRegionBox = null, camera = null) {
         this.house = house
         this.character = character
         this.groundRegionBox = groundRegionBox
+        this.camera = camera
 
         // Uniforms for the proximity shader
         this.sharedUniforms = {
@@ -22,6 +23,9 @@ class HouseVisibility {
         ]
 
         this._lastTargetRadius = 6.0
+        this._lastInGroundRegion = false
+        this._zoomOutside = 1.0
+        this._zoomInside = 1.5
         this.init()
     }
 
@@ -48,14 +52,19 @@ class HouseVisibility {
                 const materials = Array.isArray(node.material) ? node.material : [node.material]
 
                 materials.forEach((mat, index) => {
-                    const isWall = (mat.name || "").toLowerCase().includes('wall') || (mat.name || "").toLowerCase().includes('parede');
+                    const matName = (mat.name || "").toLowerCase();
+                    const isWall = matName.includes('wall') || matName.includes('parede');
+                    const isGlass = matName.includes('vidro') || matName.includes('glass');
 
-                    // Proceed only if it's a wall (for shader) or in a group (for fading)
-                    if (!isWall && !isInGroup) return;
+                    // Proceed only if it's a wall (for shader), glass, or in a group (for fading)
+                    if (!isWall && !isGlass && !isInGroup) return;
 
                     // Clone to avoid affecting shared assets
                     const newMat = mat.clone()
                     newMat.transparent = true
+
+                    // Store original opacity for the visibility system
+                    newMat.userData.baseOpacity = mat.opacity;
 
                     // Only apply proximity shader to walls
                     if (isWall) {
@@ -132,9 +141,6 @@ class HouseVisibility {
 
         group.targetOpacity = target
 
-        // If becoming visible, ensure object is visible before fade starts
-        if (visible) group.object.visible = true
-
         gsap.to(group, {
             currentOpacity: target,
             duration: 0.5,
@@ -144,14 +150,11 @@ class HouseVisibility {
                     if (node.isMesh && node.material) {
                         const mats = Array.isArray(node.material) ? node.material : [node.material]
                         mats.forEach(m => {
-                            m.opacity = group.currentOpacity
+                            const baseOpacity = m.userData.baseOpacity !== undefined ? m.userData.baseOpacity : 1.0;
+                            m.opacity = group.currentOpacity * baseOpacity;
                         })
                     }
                 })
-            },
-            onComplete: () => {
-                // If completely faded out, hide object for performance
-                if (!visible) group.object.visible = false
             }
         })
     }
@@ -177,6 +180,18 @@ class HouseVisibility {
                 value: targetRadius,
                 duration: 0.5,
                 ease: 'power2.inOut'
+            })
+        }
+
+        // ── Camera Zoom Animation ───────────────────────────────────────
+        if (this.camera && inGroundRegion !== this._lastInGroundRegion) {
+            this._lastInGroundRegion = inGroundRegion
+            const targetZoom = inGroundRegion ? this._zoomInside : this._zoomOutside
+            gsap.to(this.camera, {
+                zoom: targetZoom,
+                duration: 0.8,
+                ease: 'power2.inOut',
+                onUpdate: () => this.camera.updateProjectionMatrix()
             })
         }
 

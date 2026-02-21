@@ -21,6 +21,7 @@ import { createPlayer } from './systems/player.js'
 import { loadTiger } from './components/tiger.js'
 import { createCharacterController } from './systems/characterController.js'
 import { HouseVisibility } from './systems/HouseVisibility.js'
+import { DoorInteraction } from './systems/DoorInteraction.js'
 import { Joystick } from './systems/Joystick.js'
 
 import gsap from 'gsap'
@@ -141,6 +142,18 @@ class World {
     }
     scene.add(house, birds)
     tl.to(birds.position, { duration: 60, delay: 1, x: 100, z: 120 })
+
+    // ── Exclude door from static Octree (handled by dynamic collider) ──
+    let doorMesh = null
+    let doorParent = null
+    house.traverse(child => {
+      if (child.name === 'portaEntrada') {
+        doorMesh = child
+        doorParent = child.parent
+      }
+    })
+    if (doorMesh && doorParent) doorParent.remove(doorMesh)
+
     const player = createPlayer(firstPersonCamera, house)
     loop.updatables.push(player)
 
@@ -165,8 +178,18 @@ class World {
     )
     loop.updatables.push(characterController)
 
-    const houseVisibility = new HouseVisibility(house, tiger, groundRegionBox)
+    // Re-attach door for rendering after Octree is built
+    if (doorMesh && doorParent) doorParent.add(doorMesh)
+
+    const houseVisibility = new HouseVisibility(house, tiger, groundRegionBox, orthographicCamera)
     loop.updatables.push(houseVisibility)
+
+    const doorInteraction = new DoorInteraction(
+      house, tiger,
+      (box) => characterController.addCollider(box),
+      (box) => characterController.removeCollider(box)
+    )
+    loop.updatables.push(doorInteraction)
   }
 
   start() {

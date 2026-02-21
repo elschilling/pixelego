@@ -1,4 +1,4 @@
-import { Vector3, Quaternion } from 'three'
+import { Vector3, Quaternion, Box3 } from 'three'
 import { Octree } from 'three/examples/jsm/math/Octree'
 import { Capsule } from 'three/examples/jsm/math/Capsule'
 
@@ -17,6 +17,9 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
     const capsuleBottom = new Vector3(tiger.position.x, tiger.position.y + 0.3, tiger.position.z)
     const capsuleTop = new Vector3(tiger.position.x, tiger.position.y + 1.2, tiger.position.z)
     const tigerCapsule = new Capsule(capsuleBottom, capsuleTop, 0.3)
+
+    // ── Dynamic Box colliders (for doors etc.) ──────────────────────────
+    const dynamicColliders = []
 
     const velocity = new Vector3()
     const moveDir = new Vector3()
@@ -52,6 +55,38 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
                 velocity.addScaledVector(result.normal, -result.normal.dot(velocity))
             }
             tigerCapsule.translate(result.normal.multiplyScalar(result.depth))
+        }
+
+        // ── Check dynamic box colliders ──────────────────────────────────
+        for (const box of dynamicColliders) {
+            // Build an AABB around the capsule
+            const capsuleBox = new Box3()
+            capsuleBox.min.copy(tigerCapsule.start).min(tigerCapsule.end)
+            capsuleBox.max.copy(tigerCapsule.start).max(tigerCapsule.end)
+            capsuleBox.expandByScalar(tigerCapsule.radius)
+
+            if (capsuleBox.intersectsBox(box)) {
+                // Find the smallest push-out axis
+                const overlapX1 = capsuleBox.max.x - box.min.x
+                const overlapX2 = box.max.x - capsuleBox.min.x
+                const overlapZ1 = capsuleBox.max.z - box.min.z
+                const overlapZ2 = box.max.z - capsuleBox.min.z
+
+                const minOverlapX = Math.min(overlapX1, overlapX2)
+                const minOverlapZ = Math.min(overlapZ1, overlapZ2)
+
+                const pushDir = new Vector3()
+                if (minOverlapX < minOverlapZ) {
+                    pushDir.x = overlapX1 < overlapX2 ? -minOverlapX : minOverlapX
+                } else {
+                    pushDir.z = overlapZ1 < overlapZ2 ? -minOverlapZ : minOverlapZ
+                }
+
+                tigerCapsule.translate(pushDir)
+                // Kill velocity along push axis
+                if (pushDir.x !== 0) velocity.x = 0
+                if (pushDir.z !== 0) velocity.z = 0
+            }
         }
     }
 
@@ -166,7 +201,16 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
         camera.lookAt(tiger.position)
     }
 
-    return { tick }
+    function addCollider(box) {
+        dynamicColliders.push(box)
+    }
+
+    function removeCollider(box) {
+        const idx = dynamicColliders.indexOf(box)
+        if (idx !== -1) dynamicColliders.splice(idx, 1)
+    }
+
+    return { tick, addCollider, removeCollider }
 }
 
 export { createCharacterController }

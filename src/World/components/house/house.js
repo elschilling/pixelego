@@ -19,8 +19,13 @@ async function loadHouse() {
       groundRegion = n
     }
     if (n.isMesh) {
-      if (n.material.name === 'esquadria.vidro') {
+      const matName = (n.material.name || "").toLowerCase()
+      const isGlass = matName.includes('vidro') || matName.includes('glass')
+
+      if (isGlass) {
         n.castShadow = false
+        n.material.transparent = true
+        n.material.opacity = 0.5
       } else {
         n.castShadow = true
         n.receiveShadow = true
