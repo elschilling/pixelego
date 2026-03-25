@@ -2,7 +2,7 @@ import { Vector3, Quaternion, Box3 } from 'three'
 import { Octree } from 'three/examples/jsm/math/Octree'
 import { Capsule } from 'three/examples/jsm/math/Capsule'
 
-function createCharacterController(tiger, idleAction, walkAction, runAction, mixer, camera, collisionMesh, joystick) {
+function createCharacterController(tiger, idleAction, walkAction, runAction, mixer, camera, collisionMesh, joystick, spawnPos, sandMesh) {
     const WALK_SPEED = 5
     const RUN_SPEED = 10
     const GRAVITY = 30
@@ -12,6 +12,7 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
     // ── Octree collision world ──────────────────────────────────────────
     const worldOctree = new Octree()
     if (collisionMesh) worldOctree.fromGraphNode(collisionMesh)
+    if (sandMesh) worldOctree.fromGraphNode(sandMesh)
 
     // Capsule: bottom point, top point, radius
     const capsuleBottom = new Vector3(tiger.position.x, tiger.position.y + 0.3, tiger.position.z)
@@ -125,8 +126,11 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
 
         // Safety teleport if fallen out of bounds
         if (tiger.position.y < -25) {
-            tigerCapsule.start.set(0, 0.6, 0)
-            tigerCapsule.end.set(0, 1.5, 0)
+            const sx = spawnPos ? spawnPos.x : 0
+            const sy = spawnPos ? spawnPos.y : 0
+            const sz = spawnPos ? spawnPos.z : 0
+            tigerCapsule.start.set(sx, sy + 0.6, sz)
+            tigerCapsule.end.set(sx, sy + 1.5, sz)
             velocity.set(0, 0, 0)
         }
     }

@@ -8,7 +8,7 @@ async function loadTiger() {
     const gltfLoader = new GLTFLoader()
     gltfLoader.setDRACOLoader(dracoLoader)
 
-    const gltfData = await gltfLoader.loadAsync('/assets/models/tigre.glb')
+    const gltfData = await gltfLoader.loadAsync('/assets/models/surfer.glb')
     const tiger = gltfData.scene
     tiger.name = 'tiger'
 
@@ -26,6 +26,7 @@ async function loadTiger() {
     const mixer = new AnimationMixer(tiger)
 
     const clips = gltfData.animations
+    console.log(clips, 'clips')
     const idleClip = clips.find(c => c.name === 'Idle') || clips[0]
     const walkClip = clips.find(c => c.name === 'Walk') || clips[2]
     const runClip = clips.find(c => c.name === 'Run') || clips[1]

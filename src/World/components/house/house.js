@@ -12,14 +12,42 @@ async function loadHouse() {
   const house = setupModel(houseData)
 
   let groundRegion = null
+  let sandMesh     = null   // sea floor mesh for bathymetry raycasting
+  let oceanMesh    = null   // user authored ocean mesh
+  let spawnNode    = null   // respawn empty location
 
-  // 1. Traverse to find GroundRegion and setup shadows
+  // 1. Traverse to find GroundRegion, sand mesh, and setup shadows
   house.traverse(n => {
     if (n.name === 'GroundRegion') {
       groundRegion = n
     }
+    
+    if (n.name === 'spawn') {
+      spawnNode = n
+      console.log('House: found spawn point')
+    }
+
     if (n.isMesh) {
-      const matName = (n.material.name || "").toLowerCase()
+      const nameLower = n.name.toLowerCase()
+      const matName   = (n.material?.name || '').toLowerCase()
+
+      // Detect the sand / beach mesh by name or material name
+      const isSand = ['sand', 'praia', 'beach', 'areia', 'sea', 'floor']
+        .some(token => nameLower.includes(token) || matName.includes(token))
+
+      if (isSand) {
+        sandMesh = n
+        console.log('BathymetrySystem: found sand mesh →', n.name)
+      }
+
+      const isOcean = ['ocean', 'water', 'oceano', 'agua']
+        .some(token => nameLower.includes(token) || matName.includes(token))
+      
+      if (isOcean) {
+        oceanMesh = n
+        console.log('OceanSystem: found ocean mesh →', n.name)
+      }
+
       const isGlass = matName.includes('vidro') || matName.includes('glass')
 
       if (isGlass) {
@@ -27,7 +55,7 @@ async function loadHouse() {
         n.material.transparent = true
         n.material.opacity = 0.5
       } else {
-        n.castShadow = true
+        n.castShadow    = true
         n.receiveShadow = true
       }
     }
@@ -38,19 +66,18 @@ async function loadHouse() {
   const center = box.getCenter(new Vector3())
   house.position.x += (house.position.x - center.x)
   house.position.z += (house.position.z - center.z)
-  // house.position.y = 2.2
 
   // 3. Capture GroundRegion World Box and Detach
   let groundRegionBox = null
   if (groundRegion) {
-    house.updateMatrixWorld(true) // Ensure transforms are applied
+    house.updateMatrixWorld(true)
     groundRegionBox = new Box3().setFromObject(groundRegion)
     if (groundRegion.parent) {
       groundRegion.parent.remove(groundRegion)
     }
   }
 
-  return { house, groundRegionBox }
+  return { house, groundRegionBox, sandMesh, oceanMesh, spawnNode }
 }
 
 export { loadHouse }

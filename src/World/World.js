@@ -1,3 +1,4 @@
+import { Vector3 } from 'three'
 import { loadHouse } from './components/house/house.js'
 import { loadBirds } from './components/birds/birds.js'
 import { createBirdCamera } from './components/birdCamera.js'
@@ -9,10 +10,11 @@ import { createScene } from './components/scene.js'
 import { createDirectionalLightHelper, createShadowCameraHelper, createAxesHelper } from './components/helpers.js'
 import { createSunSphere } from './components/sunSphere.js'
 
-import { createGUI } from './systems/gui.js'
+import { createGUI, addOceanGUI } from './systems/gui.js'
 import { createControls } from './systems/controls.js'
 import { createRenderer } from './systems/renderer.js'
 import { createPostProcessing } from './systems/PostProcessing.js'
+import { OceanSystem } from './ocean/OceanSystem.js'
 import { Resizer } from './systems/Resizer.js'
 import { Loop } from './systems/Loop.js'
 import { SunPath } from './systems/SunPath.js'
@@ -38,7 +40,7 @@ const params = {
   latitude: -23.029396,
   longitude: -46.974293,
   northOffset: 303,
-  radius: 18,
+  radius: 60,
   baseY: 0,
   timeSpeed: 100,
   shadowBias: -0.00037
@@ -128,6 +130,9 @@ class World {
 
     loop.updatables.push(base, controls, sunPath, sky)
 
+    // sunLight lives inside sunPath.sunPathLight and casts shadows from there —
+    // do NOT add it to the scene directly or Three.js will reparent it away from
+    // sphereLight.children[], which DynamicSky.tick() depends on.
     scene.add(sky.sky, ambientLight, sunHelper, sunShadowHelper, sunPath.sunPathLight)
 
     this.gui = createGUI(params, ambientLight, sunLight, sunHelper, sunShadowHelper, sunPath, controls, skyControl, cameraControl, postProcessing)
@@ -135,12 +140,41 @@ class World {
   }
 
   async init() {
-    const { house, groundRegionBox } = await loadHouse()
+    // ── Ocean ───────────────────────────────────────────────────────
+    const oceanSystem = new OceanSystem()
+    scene.add(oceanSystem.mesh)
+    loop.updatables.push(oceanSystem)
+    this.oceanSystem = oceanSystem   // expose for GUI
+    addOceanGUI(this.gui, oceanSystem)
+
+    const { house, groundRegionBox, sandMesh, oceanMesh, spawnNode } = await loadHouse()
+    
+    let spawnPos = new Vector3(0, 0, 0)
+    if (spawnNode) {
+      house.updateMatrixWorld(true)
+      spawnNode.getWorldPosition(spawnPos)
+    }
+
+    // Bind to the user's custom ocean mesh if one was modeled in the house GLB
+    // We do this before rebaking so the bathymetry centers over the new mesh.
+    if (oceanMesh) {
+      oceanSystem.useCustomMesh(oceanMesh)
+    }
+
     const birds = await loadBirds()
     for (var b = 0; b < birds.children.length; b++) {
       loop.updatables.push(birds.children[b])
     }
     scene.add(house, birds)
+
+    // Bake the bathymetry depth map from the real sand mesh geometry
+    if (sandMesh) {
+      house.updateMatrixWorld(true)
+      oceanSystem.rebakeBathymetry(sandMesh, renderer)
+    } else {
+      console.warn('World: no sand mesh found — using fallback deep-water depth')
+    }
+
     tl.to(birds.position, { duration: 60, delay: 1, x: 100, z: 120 })
 
     // ── Exclude door from static Octree (handled by dynamic collider) ──
@@ -154,11 +188,22 @@ class World {
     })
     if (doorMesh && doorParent) doorParent.remove(doorMesh)
 
+    // Remove oceanMesh temporarily so the tiger walks on the sea floor, not the flat rigid water surface
+    let oceanParent = null
+    if (oceanMesh) {
+      oceanParent = oceanMesh.parent
+      if (oceanParent) oceanParent.remove(oceanMesh)
+    }
+
     const player = createPlayer(firstPersonCamera, house)
     loop.updatables.push(player)
 
     // ── Tiger character ─────────────────────────────────────────────────
     const { tiger, mixer, idleAction, walkAction, runAction } = await loadTiger()
+    
+    // Move tiger to the extracted spawn node location
+    tiger.position.copy(spawnPos)
+    
     scene.add(tiger)
 
     // Switch to orthographic 3rd-person camera and lock OrbitControls off
@@ -174,12 +219,13 @@ class World {
     const joystick = new Joystick()
 
     const characterController = createCharacterController(
-      tiger, idleAction, walkAction, runAction, mixer, orthographicCamera, house, joystick
+      tiger, idleAction, walkAction, runAction, mixer, orthographicCamera, house, joystick, spawnPos, sandMesh
     )
     loop.updatables.push(characterController)
 
-    // Re-attach door for rendering after Octree is built
+    // Re-attach elements excluded from the static Octree
     if (doorMesh && doorParent) doorParent.add(doorMesh)
+    if (oceanMesh && oceanParent) oceanParent.add(oceanMesh)
 
     const houseVisibility = new HouseVisibility(house, tiger, groundRegionBox, orthographicCamera)
     loop.updatables.push(houseVisibility)

@@ -83,4 +83,74 @@ function createGUI(params, ambientLight, sunLight, sunHelper, shadowCameraHelper
   return gui
 }
 
-export { createGUI }
+/**
+ * addOceanGUI – appends an Ocean folder to an existing lil-gui instance.
+ * Call this after OceanSystem is instantiated (i.e., inside World.init()).
+ */
+function addOceanGUI(gui, oceanSystem) {
+  const swell = oceanSystem.swell
+  const u     = oceanSystem.uniforms
+
+  // Proxy object so lil-gui can read/write the swell properties
+  const proxy = {
+    waveHeight:     swell.waveHeight,
+    wavePeriod:     swell.wavePeriod,
+    waveSpeed:      swell.waveSpeed,
+    dirX:           swell.waveDirection.x,
+    dirZ:           swell.waveDirection.z,
+    surfBreakingK:  u.uSurfBreakingK.value,
+    beachBreakingK: u.uBeachBreakingK.value,
+    barrelIntensity:u.uBarrelIntensity.value,
+    breakType:      'beach',
+  }
+
+  const folder = gui.addFolder('Ocean')
+
+  folder.add(proxy, 'waveHeight', 0.1, 6, 0.05).name('Wave Height').onChange(v => {
+    swell.waveHeight = v
+    oceanSystem.updateFromGUI()
+  })
+  folder.add(proxy, 'wavePeriod', 2, 20, 0.1).name('Wave Period').onChange(v => {
+    swell.wavePeriod = v
+    oceanSystem.updateFromGUI()
+  })
+  folder.add(proxy, 'waveSpeed', 0.1, 3, 0.05).name('Wave Speed').onChange(v => {
+    swell.waveSpeed = v
+    oceanSystem.updateFromGUI()
+  })
+  folder.add(proxy, 'dirX', -1, 1, 0.01).name('Direction X').onChange(v => {
+    swell.waveDirection.x = v
+    oceanSystem.updateFromGUI()
+  })
+  folder.add(proxy, 'dirZ', -1, 1, 0.01).name('Direction Z').onChange(v => {
+    swell.waveDirection.z = v
+    oceanSystem.updateFromGUI()
+  })
+  folder.add(proxy, 'surfBreakingK', 0.5, 3, 0.05).name('Surf Break Depth').onChange(v => {
+    u.uSurfBreakingK.value = v
+  })
+  folder.add(proxy, 'beachBreakingK', 0.1, 2, 0.05).name('Beach Break Depth').onChange(v => {
+    u.uBeachBreakingK.value = v
+  })
+  folder.add(proxy, 'barrelIntensity', 0, 2, 0.05).name('Barrel Intensity').onChange(v => {
+    u.uBarrelIntensity.value = v
+  })
+  folder.add(proxy, 'breakType', ['beach', 'reef', 'point']).name('Break Type').onChange(v => {
+    oceanSystem.setBreakType(v)
+    // Sync proxy so other sliders reflect preset values
+    proxy.waveHeight = swell.waveHeight
+    proxy.wavePeriod = swell.wavePeriod
+    proxy.waveSpeed  = swell.waveSpeed
+    proxy.dirX       = swell.waveDirection.x
+    proxy.dirZ       = swell.waveDirection.z
+    folder.controllers.forEach(c => c.updateDisplay())
+  })
+  
+  folder.add(oceanSystem.mesh.position, 'y', -5, 8, 0.1).name('Ocean Height').onChange(() => {
+    oceanSystem.updateFromGUI()
+  })
+
+  folder.open()
+}
+
+export { createGUI, addOceanGUI }
