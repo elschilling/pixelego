@@ -30,14 +30,16 @@ async function loadTiger() {
     const idleClip = clips.find(c => c.name === 'Idle') || clips[0]
     const walkClip = clips.find(c => c.name === 'Walk') || clips[2]
     const runClip = clips.find(c => c.name === 'Run') || clips[1]
+    const swimClip = clips.find(c => c.name === 'Swim')
 
     const idleAction = mixer.clipAction(idleClip)
     const walkAction = mixer.clipAction(walkClip)
     const runAction = mixer.clipAction(runClip)
+    const swimAction = swimClip ? mixer.clipAction(swimClip) : null
 
     idleAction.play()
 
-    return { tiger, mixer, idleAction, walkAction, runAction }
+    return { tiger, mixer, idleAction, walkAction, runAction, swimAction }
 }
 
 export { loadTiger }

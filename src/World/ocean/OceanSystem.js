@@ -67,6 +67,36 @@ export class OceanSystem {
     }
   }
 
+  getWaveHeight(worldX, worldZ) {
+    let dispY = 0
+    const time = this._elapsed
+
+    for (let i = 0; i < 3; i++) {
+        const layer = this.swell.layers[i]
+        const amp = layer.amplitude
+        const wl = layer.wavelength
+        const spd = layer.speed
+        const dx = layer.dirX
+        const dz = layer.dirZ
+
+        const len = Math.sqrt(dx * dx + dz * dz) || 1
+        const dirX = dx / len
+        const dirZ = dz / len
+
+        const k = 6.28318 / wl
+        const phase = k * (dirX * worldX + dirZ * worldZ) - spd * k * time
+        
+        dispY += amp * (Math.sin(phase) + 1.0)
+    }
+
+    // Return the approximated world Y position of the ocean.
+    // Near the beach the actual mesh is lifted higher via steepMul,
+    // so we can approximate the steepness lift near the shore.
+    // For simplicity, we just use a small multiplier to match the look.
+    return (this.uniforms.uOceanY.value || 0) + dispY * 1.4
+  }
+
+
   setBreakType(type) {
     this.swell.setPreset(type)
     this._syncUniforms()

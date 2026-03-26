@@ -1,13 +1,14 @@
-import { Vector3, Quaternion, Box3 } from 'three'
+import { Vector3, Quaternion, Box3, Raycaster } from 'three'
 import { Octree } from 'three/examples/jsm/math/Octree'
 import { Capsule } from 'three/examples/jsm/math/Capsule'
 
-function createCharacterController(tiger, idleAction, walkAction, runAction, mixer, camera, collisionMesh, joystick, spawnPos, sandMesh) {
+function createCharacterController(tiger, idleAction, walkAction, runAction, swimAction, mixer, getActiveCamera, cameraControl, collisionMesh, joystick, spawnPos, sandMesh, oceanSystem) {
     const WALK_SPEED = 5
     const RUN_SPEED = 10
     const GRAVITY = 30
     const STEPS_PER_FRAME = 5
-    const CAMERA_OFFSET = new Vector3(-20, 20, 20)
+    const ISOMETRIC_OFFSET = new Vector3(-20, 20, 20)
+    let currentCameraOffset = ISOMETRIC_OFFSET.clone()
 
     // ── Octree collision world ──────────────────────────────────────────
     const worldOctree = new Octree()
@@ -41,8 +42,8 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
     // ── Helpers ─────────────────────────────────────────────────────────
 
     function fadeToAction(toAction, duration = 0.2) {
-        if (activeAction === toAction) return
-        activeAction.fadeOut(duration)
+        if (!toAction || activeAction === toAction) return
+        if (activeAction) activeAction.fadeOut(duration)
         toAction.reset().fadeIn(duration).play()
         activeAction = toAction
     }
@@ -91,8 +92,52 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
         }
     }
 
+    let isSwimming = false;
+    let wasSwimming = false;
+    let isOverOcean = false;
+    const oceanRaycaster = new Raycaster();
+    const downDir = new Vector3(0, -1, 0);
+
     function applyPhysics(dt, moving, jumping) {
-        if (onFloor) {
+        // Evaluate water height ONLY if above the physical ocean mesh
+        let waterSurfaceY = -Infinity;
+        if (isOverOcean && oceanSystem) {
+            waterSurfaceY = oceanSystem.getWaveHeight(tigerCapsule.start.x, tigerCapsule.start.z);
+        }
+
+        const currentFeetY = tigerCapsule.start.y - tigerCapsule.radius;
+        const waterDepth = waterSurfaceY - currentFeetY;
+
+        // Hysteresis threshold: swim if deep, walk if shallow
+        if (!isSwimming && waterDepth > 0.9) {
+            isSwimming = true;
+        } else if (isSwimming && waterDepth < 0.5) {
+            isSwimming = false;
+        }
+
+        if (isSwimming) {
+            // Apply buoyancy / floating
+            onFloor = false
+            
+            const floatLine = waterSurfaceY - 0.8;
+            const yDist = floatLine - currentFeetY;
+            
+            // Allow jumping out of water
+            if (jumping && waterDepth < 1.4) {
+                velocity.y = 8;
+            } else if (velocity.y > 0 && yDist < -0.1) {
+                // If they carry upward momentum from a jump above the float line, let gravity handle the arc
+                velocity.y -= GRAVITY * dt;
+            } else {
+                // Tightly glue the character to the bobbing wave! 
+                // Using a stiff velocity constraint prevents them from decoupling when waves drop rapidly.
+                velocity.y = yDist * 15;
+            }
+            
+            // Heavy drag in water horizontally
+            velocity.x *= Math.exp(-3 * dt);
+            velocity.z *= Math.exp(-3 * dt);
+        } else if (onFloor) {
             if (!moving) {
                 // Stop instantly — no sliding
                 velocity.x = 0
@@ -139,6 +184,7 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
         moveDir.set(0, 0, 0)
 
         // Derive camera-space axes projected onto XZ plane
+        const camera = getActiveCamera()
         cameraForward.subVectors(tiger.position, camera.position)
         cameraForward.y = 0
         cameraForward.normalize()
@@ -180,15 +226,34 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
         // Evaluate input state just once for animation logic
         const inputState = gatherInput(delta / STEPS_PER_FRAME * STEPS_PER_FRAME)
 
+        // Evaluate if over physical ocean mesh ONCE per frame
+        isOverOcean = false;
+        if (oceanSystem && oceanSystem.mesh) {
+            oceanRaycaster.set(new Vector3(tigerCapsule.start.x, 1000, tigerCapsule.start.z), downDir)
+            const hits = oceanRaycaster.intersectObject(oceanSystem.mesh, true)
+            if (hits.length > 0) {
+                isOverOcean = true;
+            }
+        }
+
         // Physics sub-steps
+        wasSwimming = isSwimming;
         for (let i = 0; i < STEPS_PER_FRAME; i++) {
             const dt = Math.min(0.05, delta) / STEPS_PER_FRAME
             const { moving, jumping } = gatherInput(dt)
             applyPhysics(dt, moving, jumping)
         }
 
+        if (isSwimming && !wasSwimming) {
+            cameraControl.swim()
+        } else if (!isSwimming && wasSwimming) {
+            cameraControl.orthographic()
+        }
+
         // ── Animation blending ──────────────────────────────────────────
-        if (inputState.moving) {
+        if (isSwimming && swimAction) {
+            fadeToAction(swimAction)
+        } else if (inputState.moving) {
             if (inputState.running) {
                 fadeToAction(runAction)
             } else {
@@ -201,7 +266,22 @@ function createCharacterController(tiger, idleAction, walkAction, runAction, mix
         mixer.update(delta)
 
         // ── Follow camera ────────────────────────────────────────────────
-        camera.position.copy(tiger.position).add(CAMERA_OFFSET)
+        let targetOffset = new Vector3()
+        if (isSwimming) {
+            // Behind the character's back
+            // Since Tiger rotates +Math.PI, +Z is physically "behind" it natively.
+            // (0, 15, 25) maintains similar Orthographic/Perspective distance as Isometric
+            const swimOffset = new Vector3(0, 15, 25)
+            targetOffset.copy(swimOffset).applyQuaternion(tiger.quaternion)
+        } else {
+            targetOffset.copy(ISOMETRIC_OFFSET)
+        }
+
+        // Smooth camera transition using delta
+        currentCameraOffset.lerp(targetOffset, 3 * delta)
+
+        const camera = getActiveCamera()
+        camera.position.copy(tiger.position).add(currentCameraOffset)
         camera.lookAt(tiger.position)
     }
 

@@ -4,6 +4,7 @@ import { loadBirds } from './components/birds/birds.js'
 import { createBirdCamera } from './components/birdCamera.js'
 import { createOrthographicCamera } from './components/orthographicCamera.js'
 import { createFirstPersonCamera } from './components/firstPersonCamera.js'
+import { PerspectiveCamera } from 'three'
 import { createBase } from './components/base.js'
 import { createLights } from './components/lights.js'
 import { createScene } from './components/scene.js'
@@ -78,12 +79,20 @@ const cameraControl = {
     postProcessing.setCamera(orthographicCamera)
     controls.object = orthographicCamera
     resizer.onResize()
+  },
+  swim() {
+    activeCamera = swimCamera
+    loop.camera = swimCamera
+    resizer.camera = swimCamera
+    postProcessing.setCamera(swimCamera)
+    controls.object = swimCamera
+    resizer.onResize()
   }
 }
 
 let tl = gsap.timeline({ repeta: -1 })
 
-let activeCamera, birdCamera, firstPersonCamera, orthographicCamera
+let activeCamera, birdCamera, firstPersonCamera, orthographicCamera, swimCamera
 let renderer, postProcessing
 let scene
 let loop
@@ -95,6 +104,9 @@ class World {
     birdCamera = createBirdCamera()
     firstPersonCamera = createFirstPersonCamera()
     orthographicCamera = createOrthographicCamera()
+    
+    swimCamera = new PerspectiveCamera(40, 1, 0.1, 400)
+    
     activeCamera = orthographicCamera
 
     scene = createScene()
@@ -199,7 +211,7 @@ class World {
     loop.updatables.push(player)
 
     // ── Tiger character ─────────────────────────────────────────────────
-    const { tiger, mixer, idleAction, walkAction, runAction } = await loadTiger()
+    const { tiger, mixer, idleAction, walkAction, runAction, swimAction } = await loadTiger()
     
     // Move tiger to the extracted spawn node location
     tiger.position.copy(spawnPos)
@@ -219,7 +231,9 @@ class World {
     const joystick = new Joystick()
 
     const characterController = createCharacterController(
-      tiger, idleAction, walkAction, runAction, mixer, orthographicCamera, house, joystick, spawnPos, sandMesh
+      tiger, idleAction, walkAction, runAction, swimAction, mixer, 
+      () => activeCamera, cameraControl,
+      house, joystick, spawnPos, sandMesh, oceanSystem
     )
     loop.updatables.push(characterController)
 

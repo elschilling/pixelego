@@ -52,7 +52,7 @@ const vertexShader = /* glsl */`
     vec4 restWorldPos = modelMatrix * vec4(position, 1.0);
     vBathyUv = vec2(
         (restWorldPos.x - uOceanPos.x + uBathymetrySize * 0.5) / uBathymetrySize,
-        (restWorldPos.z - uOceanPos.z + uBathymetrySize * 0.5) / uBathymetrySize
+        1.0 - (restWorldPos.z - uOceanPos.z + uBathymetrySize * 0.5) / uBathymetrySize
     );
 
     float sandY = texture2D(uBathymetry, vBathyUv).r;
@@ -165,20 +165,20 @@ const fragmentShader = /* glsl */`
 
 export function createOceanMaterial(bathymetryTexture) {
   const customUniforms = {
-    uTime:            { value: 0 },
-    uWave0:           { value: new Vector4(1.0, 8.0,  1.0, 0.5) },
-    uWave1:           { value: new Vector4(0.5, 5.6,  1.1, 0.4) },
-    uWave2:           { value: new Vector4(0.25, 3.2, 0.9, 0.3) },
-    uDir0:            { value: new Vector2(0.0,  1.0) },
-    uDir1:            { value: new Vector2(0.1,  0.95) },
-    uDir2:            { value: new Vector2(-0.15, 0.85) },
-    uSurfBreakingK:   { value: 1.5 },
-    uBeachBreakingK:  { value: 0.5 },
-    uMaxWaveHeight:   { value: 2.0 },
-    uBarrelIntensity: { value: 0.5 },
-    uOceanY:          { value: 0 },
-    uOceanPos:        { value: new Vector3() },
-    uBathymetrySize:  { value: 200.0 },
+    uTime: { value: 0 },
+    uWave0: { value: new Vector4(1.0, 8.0, 1.0, 0.5) },
+    uWave1: { value: new Vector4(0.5, 5.6, 1.1, 0.4) },
+    uWave2: { value: new Vector4(0.25, 3.2, 0.9, 0.3) },
+    uDir0: { value: new Vector2(0.0, 1.0) },
+    uDir1: { value: new Vector2(0.1, 0.95) },
+    uDir2: { value: new Vector2(-0.15, 0.85) },
+    uSurfBreakingK: { value: 1.5 },
+    uBeachBreakingK: { value: 0.5 },
+    uMaxWaveHeight: { value: 1.65 },
+    uBarrelIntensity: { value: 1.0 },
+    uOceanY: { value: 0 },
+    uOceanPos: { value: new Vector3() },
+    uBathymetrySize: { value: 200.0 },
     // Omit uBathymetry from the initial merge to avoid cloning a render target texture!
   }
 
@@ -195,8 +195,8 @@ export function createOceanMaterial(bathymetryTexture) {
     fragmentShader,
     uniforms,
     transparent: true,
-    side:        DoubleSide,
-    lights:      true,   // inject Three.js light uniforms (needed for shadowmap_pars)
+    side: DoubleSide,
+    lights: true,   // inject Three.js light uniforms (needed for shadowmap_pars)
   })
 
   return { material, uniforms }
